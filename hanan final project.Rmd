@@ -1,0 +1,254 @@
+---
+title: "FINAL PROJECT"
+author: "hanan"
+date: '2022-04-27'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=TRUE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(caret)
+library(pROC)
+library(mlbench)
+library(ranger)
+
+```
+**Objective**:The objective of this study is to analyze the Salary prediction datasets  and fit at least three different statistical learning methods to make prediction of the individuals whose annual salary is less than equal to $50,000 or greater than $50,000  and also Use cross-validation (10-K fold CV) to compare the performance of the three different statistical learning methods. In addition find out which predictors are significant in predicting the two salary group.
+
+**Data Processing and Manipulation**:
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+#loading of data(The data was obtained from kaggle)
+data<-read.csv("salaryout.csv",stringsAsFactors = FALSE,header=TRUE)
+
+# remove duplicates
+data = distinct(data,salary,workclass,age,education,occupation,native.country,race,relationship,sex,marital.status,age,fnlwgt,hours.per.week,.keep_all= TRUE)
+
+# convert variables into factor
+data$workclass<-as.factor(data$workclass)
+data$education<-as.factor(data$education)
+data$occupation<-as.factor(data$occupation)
+data$native.country<-as.factor(data$native.country)
+data$race<-as.factor(data$race)
+data$relationship<-as.factor(data$relationship)
+data$sex<-as.factor(data$sex)
+data$marital.status<-as.factor(data$marital.status)
+data$salary<-as.factor(data$salary)
+
+```
+**Explanation of the variables of the dataset**:
+1.	age : continuous.
+2.	workclass: a general term to represent the employment status of an individual
+a.	Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.
+3.	fnlwgt: this is the number of people that census believes the entry represents
+a.	continuous.
+4.	education: Preschool , 1st-4th , 5th-6th , 7th-8th , 9th , 10th , 11th , 12th , HS-grad , Prof-school , Assoc-acdm , Assoc-voc , Some-college , Bachelors , Masters , Doctorate
+5.	education-num: a number that describe your education status from preschool to doctorate.
+6.	marital-status: marital status of an individual. Married-civ-spouse corresponds to a civilian spouse while Married-AF-spouse is a spouse in the Armed Forces.
+Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+7.	occupation: Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces.
+8.	relationship: represents what this individual is relative to other
+a.	Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried.
+9.	race: White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black.
+10.	sex: Female, Male.
+11.	capital-gain: continuous.
+12.	capital-loss: continuous.
+13.	hours-per-week: continuous.
+14.	native-country: United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands.
+15.	salary: <=50K(Yes) or >50K(No)
+
+
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+
+#create dummies for target column
+#library(fastDummies)
+#data <- dummy_cols(data, select_columns = 'salary')
+
+ 
+data= subset(data, select = -c(X,education.num,fnlwgt) )
+#names(data)[13] <- 'salary'
+#data<- data[ -c(14) ]
+
+# yes represent less than equal to $50,000 whiles No represent greater than $50,000
+
+#data$salary=ifelse(data$salary==0,"No","Yes")
+
+# normalizing some columns
+data <- data %>% mutate_at(c("age", "capital.gain","capital.loss","hours.per.week"), ~(scale(.) %>% as.vector))
+
+
+```
+
+
+
+
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+# Splitting of dataset
+set.seed(1234)
+ind <- sample(2, nrow(data), replace = TRUE, prob = c(0.7, 0.3))
+training <- data[ind == 1,]
+test <- data[ind == 2,]
+
+# Using caet package to perform 10 k-fold CV
+set.seed(1234)
+trControl <- trainControl(method = "cv",
+                          number = 10,
+                          classProbs = TRUE,
+                          summaryFunction = twoClassSummary,
+                          savePredictions=TRUE)
+
+
+
+
+```
+
+**\textcolor{blue}{k-nearest neighbors}**:The k-nearest neighbors (KNN) algorithm is a data classification method for estimating the likelihood that a data point will become a member of one group or another based on what group the data points nearest to it belong to. The KNN algorithm assumes that similar things exist in close proximity. In other words, similar things are near to each other. The advantage of The k-nearest-neighbor is,it has no training period, hence  example of a "lazy learner" algorithm because it does not generate a model of the data set beforehand. The only calculations it makes are when it is asked to poll the data point's neighbors. However, it Does not work well with high dimensions: The KNN algorithm doesn't work well with high dimensional data because with large number of dimensions, it becomes difficult for the algorithm to calculate the distance in each dimension.
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+set.seed(1234)
+fit <- train(salary ~ .,
+             data = training,
+             method = 'knn',
+             trControl = trControl,
+             metric = "ROC",
+             tuneLength = 10)
+fit
+set.seed(1234)
+
+predicted.knn = predict(fit, newdata = test,type='raw')
+misclass.knn=table(test$salary,predicted.knn)
+print(misclass.knn)
+1-sum(diag(misclass.knn))/(sum(misclass.knn)) # test error rate
+
+
+```
+**\textcolor{blue}{Random forests}**:Random forests aim to decorrelate the trees and hence improve the variance reduction of bagging. Unlike bagging, with random forest when building these decision trees, at each time a split in a tree is considered, a random sample of m predictors is chosen as split candidates from the full set of p predictors. At each split only m < p predictors are allowed to use. Typically m is square root of p (classification) and m is equal to p divide by 3 (regression). By doing so, there are only at most m very correlated predictors across any two splits. Advantages of random forest is that Random Forest can automatically handle missing values and its comparatively less impacted by noise. Its disadvantage is Random Forest require much more time to train as compared to decision trees as it generates a lot of trees (instead of one tree in case of decision tree) and makes decision on the majority of votes.
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+set.seed(1234)
+fit.rf <- train(salary ~ .,
+             data = training,
+             method = 'rf',
+             trControl = trControl,
+             metric = "ROC",
+             tuneLength = 10)
+fit.rf
+set.seed(1234)
+
+predicted.rf = predict(fit.rf, newdata = test,type='raw')
+misclass.rf=table(test$salary,predicted.rf)
+print(misclass.rf)
+1-sum(diag(misclass.rf))/(sum(misclass.rf)) # test error rate
+
+
+
+```
+
+**\textcolor{blue}{Gradient boosting machine}**:Boosting is primarily used to reduce the bias and variance in a supervised learning technique. In boosting each tree is fitted on a modified version of the original data set. Boosted trees are grown sequentially so that each tree is grown from using information from the previous trees. This method first involves building a decision tree with d splits (and d + 1 terminal notes) and next improving the model in areas where it under performed. This involves fitting a decision tree to the residuals of the model. This procedure is called learning slowly. The first decision tree is then updated based on the residual tree, but with a weight. The procedure is repeated until some stopping criterion is reached. Advantage Unlike fitting a single large decision tree to the data, which amounts to fitting the data hard and overfitting, the boosting approach instead learns slowly and converts weak learners to strong learners. One disadvantage of boosting is that it is sensitive to outliers since every classifier is obliged to fix the errors in the predecessors. Thus, the method is too dependent on outliers.
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+set.seed(1234)
+fit.gbm <- train(salary ~ .,
+             data = training,
+             method = 'gbm',
+             trControl = trControl,
+             metric = "ROC",
+             tuneLength = 10)
+
+fit.gbm
+set.seed(1234)
+
+predicted.gbm = predict(fit.gbm, newdata = test,type='raw')
+misclass.gbm=table(test$salary,predicted.gbm)
+print(misclass.gbm)
+1-sum(diag(misclass.gbm))/(sum(misclass.gbm)) # test error rate
+
+
+
+```
+
+**\textcolor{blue}{support vector machine}**:The objective of the support vector machine algorithm is to find a hyperplane in an N-dimensional space(N — the number of features) that distinctly classifies the data points.  The advantages of the SVM method are the better accuracy in classification and the best performance in the analysis. SVM is effective in cases where the number of dimensions is greater than the number of samples and works relatively well when there is a clear margin of separation between classes. However, As the support vector classifier works by putting data points, above and below the classifying hyperplane there is no probabilistic explanation for the classification. SVM does not perform very well when the data set has more noise i.e. target classes are overlapping.
+
+
+
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+set.seed(1234)
+fit.svm <- train(salary ~ .,
+             data = training,
+             method = 'svmRadial',
+             trControl = trControl,
+             metric = "ROC",
+             tuneLength = 10)
+fit.svm
+set.seed(1234)
+
+predicted.svm = predict(fit.svm, newdata = test,type='raw')
+misclass.svm=table(test$salary,predicted.svm)
+print(misclass.svm)
+1-sum(diag(misclass.svm))/(sum(misclass.svm)) # test error rate
+
+
+```
+
+
+**\textcolor{blue}{Visualization of model performance base on ROC}**:
+In general, you want the model with the higher median AUC, as well as a smaller range between min and max AUC.Hence we can observe that the gradient boosting machine has the the highest median ROC value with the lowest range between the minimum  and Maximum ROC value.
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+#Visualization of model performance base on ROC
+resamps <- resamples(list(KNN = fit,
+                          RF = fit.rf,
+                          GBM = fit.gbm,
+                          SVM=fit.svm))
+summary(resamps)
+
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col = rgb(.2, .2, .2, .4)
+theme1$plot.symbol$pch = 16
+theme1$plot.line$col = rgb(1, 0, 0, .7)
+theme1$plot.line$lwd <- 2
+trellis.par.set(theme1)
+
+bwplot(resamps, layout = c(3, 1))
+
+trellis.par.set(caretTheme())
+dotplot(resamps, metric = "ROC")
+
+```
+**\textcolor{blue}{===}**:
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+T=data.frame(resamps[["values"]])
+Q=T[ , c("KNN.ROC", "RF.ROC","GBM.ROC","SVM.ROC")] 
+
+t.test(Q[,1], Q[,2], paired=TRUE)
+t.test(Q[,1], Q[,3], paired=TRUE)
+t.test(Q[,2], Q[,3], paired=TRUE)
+t.test(Q[,1], Q[,4], paired=TRUE)
+t.test(Q[,2], Q[,4], paired=TRUE)
+t.test(Q[,3], Q[,4], paired=TRUE)
+
+```
+```{r, echo=TRUE,warning=FALSE,message=FALSE, eval=FALSE,out.width='60%', fig.align='center', fig.pos='h',fig.width=8 }
+library(gbm)
+# Fitting the our finam model based on GBM 
+
+gbm.fit.final <- gbm(
+  formula = salary ~ .,
+  data = data,
+  distribution = "multinomial",
+  n.trees = 350,
+  interaction.depth = 8,
+  shrinkage = 0.1,
+  bag.fraction = 0.5,
+  train.fraction = 1,
+  n.minobsinnode = 10 ) 
+
+
+summary.gbm(gbm.fit.final)
+
+```
