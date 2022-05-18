@@ -1,0 +1,2 @@
+# Cross-validation-using-R
+The objective of this study is to analyze the Salary prediction datasets  and fit at least three different statistical learning methods to make prediction of the individuals whose annual salary is less than equal to $50,000 or greater than $50,000  and also Use cross-validation (10-K fold CV) to compare the performance of the three different statistical learning methods. In addition, find out which predictors are significant in predicting the two salary group.
